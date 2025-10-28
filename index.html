@@ -7,7 +7,7 @@
     <!-- 
       CORRECTIF (Clics Vidéos) : 
       Ajout de la politique de sécurité (CSP).
-      Ceci autorise explicitement le chargement des iframes de youtube.com.
+      Autorise youtube.com ET youtube-nocookie.com
     -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' https: 'unsafe-inline'; 
@@ -121,10 +121,6 @@
             top: 0;
             left: 0;
             object-fit: cover; 
-            /* CORRECTIF (Miniatures) : 
-              L'attribut 'referrerpolicy' est ajouté par JS, mais on le met ici
-              pour l'image de la modale de prévisualisation.
-            */
         }
         #previewThumbnail {
              referrerpolicy="no-referrer";
@@ -369,7 +365,6 @@
         let allKeywords = new Set(); 
 
         // Données d'exemple
-        // CORRECTIF (Annotations) : 'adminAnnotation' a été supprimé
         // CORRECTIF (Vues) : 'views' a été supprimé pour "ne rien mettre"
         const sampleVideos = [
             { 
@@ -431,7 +426,6 @@
         const videoTranscription = document.getElementById('videoTranscription');
         const videoUploaderElem = document.getElementById('videoUploader').querySelector('span');
         const videoViewsElem = document.getElementById('videoViews').querySelector('span');
-        // CORRECTIF (Annotations) : Référence à la section
         const adminAnnotationSection = document.getElementById('adminAnnotationSection');
         
         const adminLoginButton = document.getElementById('adminLoginButton');
@@ -516,8 +510,6 @@
             }
 
             videosToDisplay.forEach(video => {
-                // CORRECTIF (Miniatures) : 
-                // L'URL pointe maintenant vers notre propre backend (proxy)
                 const thumbnailUrl = video.youtubeVideoId 
                                 ? `${backendApiUrl}/api/thumbnail?videoId=${video.youtubeVideoId}` 
                                 : 'https://placehold.co/400x300/e0e0e0/777?text=Miniature';
@@ -532,10 +524,6 @@
                 
                 card.innerHTML = `
                     <div class="video-thumbnail-container">
-                        <!-- 
-                          CORRECTIF (Miniatures) : 
-                          Ajout de referrerpolicy='no-referrer'
-                        -->
                         <img src="${thumbnailUrl}" alt="${video.title}" loading="lazy" referrerpolicy="no-referrer">
                     </div>
                     
@@ -633,6 +621,7 @@
             videoGridPage.classList.add('hidden');
             videoPlayerPage.classList.remove('hidden');
             
+            // CORRECTIF (Clics Vidéos) : Utilise youtube-nocookie.com
             mainVideoPlayerIframe.src = `https://www.youtube-nocookie.com/embed/${video.youtubeVideoId}?autoplay=1&rel=0`;
             
             videoTitleElem.textContent = video.title;
@@ -706,12 +695,12 @@
             youtubeVideoUrlInput.value = `https://www.youtube.com/watch?v=${videoToEdit.youtubeVideoId}`;
             adminCustomAnnotation.value = videoToEdit.adminAnnotation || '';
             
-            // CORRECTIF (Miniatures) : Utilise le proxy backend
             previewThumbnail.src = `${backendApiUrl}/api/thumbnail?videoId=${videoToEdit.youtubeVideoId}`;
             previewTitle.value = videoToEdit.title;
             previewChannel.value = videoToEdit.uploader;
             previewAiSummary.value = videoToEdit.aiSummary;
             previewKeywords.value = videoToEdit.keywords.join(', ');
+            document.getElementById('previewViews').value = videoToEdit.views || ''; // Stocke les vues existantes
             
             youtubeInfoPreview.classList.remove('hidden');
             previewContent.classList.remove('hidden');
@@ -763,10 +752,54 @@
                 if (password === 'admin123') { 
                     setAdminState(true);
                     hideModal(adminLoginModal);
-/* ... existing code ... -->
+                    showUserMessage('Connecté en tant qu\'administrateur.');
+                    document.getElementById('adminPassword').value = '';
+                } else {
+                    showUserMessage('Mot de passe incorrect.');
+                }
+            });
+
+            addYoutubeVideoBtn.addEventListener('click', () => {
+                resetAddVideoModal();
+                addYoutubeVideoModal.querySelector('h3').textContent = "Ajouter une Vidéo YouTube";
+                showModal(addYoutubeVideoModal);
+            });
+
+            // --- Logique d'appel au Backend ---
+            fetchYoutubeInfoBtn.addEventListener('click', async () => {
+                const url = youtubeVideoUrlInput.value;
+                const videoId = getYouTubeVideoId(url);
+                
+                if (!videoId) {
+                    showUserMessage("URL YouTube invalide. Veuillez utiliser un lien standard (ex: youtube.com/watch?v=...).");
+                    return;
+                }
+
+                youtubeInfoPreview.classList.remove('hidden');
+                previewContent.classList.add('hidden');
+                previewLoader.classList.remove('hidden');
+                saveYoutubeVideoBtn.disabled = true; 
+                fetchYoutubeInfoBtn.disabled = true;
+                youtubeVideoUrlInput.disabled = true;
+
+                try {
+                    // Appel au Backend
+                    const response = await fetch(backendApiUrl + '/api/add-video', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            videoUrl: url,
+                            adminAnnotation: adminCustomAnnotation.value 
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Erreur du serveur');
+                    }
+                    
                     const data = await response.json();
                     
-                    // CORRECTIF (Miniatures) : Utilise le proxy backend
                     previewThumbnail.src = `${backendApiUrl}/api/thumbnail?videoId=${data.youtubeVideoId}`;
                     previewTitle.value = data.title;
                     previewChannel.value = data.uploader;
@@ -776,7 +809,18 @@
                     
                     previewLoader.classList.add('hidden');
                     previewContent.classList.remove('hidden');
-/* ... existing code ... -->
+                    saveYoutubeVideoBtn.disabled = false; 
+
+                } catch (error) {
+                    console.error("Erreur lors de l'appel au backend:", error);
+                    showUserMessage(`Erreur de communication avec le backend: ${error.message}. Assurez-vous que le serveur backend (Render) est démarré et que l'URL est correcte.`);
+                    resetAddVideoModal();
+                }
+            });
+
+            saveYoutubeVideoBtn.addEventListener('click', () => {
+                const editingId = editingVideoIdInput.value;
+                
                 const newVideoData = {
                     youtubeVideoId: getYouTubeVideoId(youtubeVideoUrlInput.value),
                     title: previewTitle.value,
@@ -812,6 +856,4 @@
     </script>
 </body>
 </html>
-
-
 
