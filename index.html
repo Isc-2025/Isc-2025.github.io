@@ -241,10 +241,6 @@
                         </div>
                     </div>
                     
-                    <!-- 
-                      CORRECTIF (Annotations) : 
-                      Ajout d'un ID et 'hidden' pour pouvoir cacher/montrer
-                    -->
                     <div id="adminAnnotationSection" class="content-section hidden">
                         <h3><i class="fas fa-user-edit mr-2"></i>Annotation de l'administrateur</h3>
                         <p id="videoAdminAnnotation" class="text-gray-700 whitespace-pre-line"></p>
@@ -257,7 +253,6 @@
 
                     <div class="mt-6 pt-4 border-t">
                         <p id="videoUploader" class="text-gray-600 mb-1">Par: <span class="font-semibold"></span></p>
-                        <!-- CORRECTIF (Vues): Ajout de 'hidden' pour cacher par défaut -->
                         <p id="videoViews" class="text-gray-600 mb-4 hidden">Vues: <span class="font-semibold"></span></p>
                     </div>
                 </div>
@@ -304,10 +299,6 @@
             <div id="youtubeInfoPreview" class="mb-3 hidden p-4 bg-gray-50 rounded border">
                 <div id="previewLoader" class="loader hidden"></div>
                 <div id="previewContent">
-                    <!-- 
-                      CORRECTIF (Miniatures) : 
-                      L'image est maintenant chargée depuis le backend (voir JS)
-                    -->
                     <img id="previewThumbnail" src="" alt="Miniature" class="w-full h-auto my-2 border rounded" referrerpolicy="no-referrer">
                     
                     <label for="previewTitle">Titre (de YouTube) :</label>
@@ -321,7 +312,7 @@
                     
                     <label for="previewKeywords">Mots-clés (générés) :</label>
                     <input type="text" id="previewKeywords" class="bg-gray-200" readonly>
-                    <input type="hidden" id="previewViews"> <!-- Ajouté pour stocker les vraies vues -->
+                    <input type="hidden" id="previewViews">
                 </div>
             </div>
 
@@ -346,11 +337,8 @@
         // const backendApiUrl = 'https://plateforme-isc.onrender.com'; 
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         
-        // Ceci est une variable globale, assurez-vous qu'elle est définie
-        // avant tout autre script qui pourrait l'utiliser (elle est ici)
         let backendApiUrl = 'http://localhost:3000'; // Par défaut pour le test local
 
-        // Logique pour détecter si on est en production (GitHub Pages)
         if (window.location.hostname.includes('github.io')) {
             // REMPLACEZ CECI par l'URL de votre backend Render
             backendApiUrl = 'https://plateforme-isc-2025.onrender.com'; // <-- METTEZ VOTRE URL RENDER ICI
@@ -365,23 +353,24 @@
         let allKeywords = new Set(); 
 
         // Données d'exemple
-        // CORRECTIF (Vues) : 'views' a été supprimé pour "ne rien mettre"
         const sampleVideos = [
             { 
                 id: 'yt001', 
                 youtubeVideoId: 'f-m4q_v2v2c', 
                 title: 'Où va l\'IA ? (Feu de Bengale)', 
                 uploader: 'Feu de Bengale', 
+                views: null,
                 aiSummary: 'Analyse approfondie de la trajectoire actuelle de l\'intelligence artificielle, de ses capacités émergentes (modèles de langage) aux risques sociétaux et existentiels. Discussion sur l\'alignement et la régulation.',
                 keywords: ['IA', 'Modèles de Langage', 'Éthique', 'Alignement', 'Régulation'],
                 transcription: 'L\'intelligence artificielle est à un tournant. Les modèles de langage comme GPT-4 montrent des capacités... (transcription simulée)...',
-                adminAnnotation: '' // Laissé vide
+                adminAnnotation: ''
             },
             { 
                 id: 'yt002', 
                 youtubeVideoId: 'cmyw3z-1tF8', 
                 title: 'Le Problème Difficile de la Conscience (David Chalmers)', 
                 uploader: 'David Chalmers (TED)', 
+                views: null,
                 aiSummary: 'Le philosophe David Chalmers explore le "Problème Difficile" de la conscience : pourquoi et comment les processus physiques du cerveau donnent-ils lieu à une expérience subjective riche ? Il distingue les problèmes "faciles" (mécanismes) du problème "difficile" (l\'expérience elle-même).',
                 keywords: ['Conscience', 'Philosophie', 'Neurosciences', 'Problème Difficile', 'Subjectivité'],
                 transcription: 'There is nothing that we know more intimately than conscious experience... (transcription simulée)...',
@@ -392,6 +381,7 @@
                 youtubeVideoId: 'S52AduLd81A', 
                 title: 'La Théorie du Langage de Chomsky', 
                 uploader: 'The Brain Maze', 
+                views: null,
                 aiSummary: 'Cette vidéo résume les concepts clés de la théorie linguistique de Noam Chomsky, notamment la grammaire universelle, l\'innéisme et le dispositif d\'acquisition du langage (LAD). Elle oppose sa vision nativiste aux approches béhavioristes.',
                 keywords: ['Langage', 'Linguistique', 'Chomsky', 'Grammaire Universelle', 'Cognition'],
                 transcription: 'Noam Chomsky revolutionized linguistics by proposing that the ability to learn language is innate... (transcription simulée)...',
@@ -402,6 +392,7 @@
                 youtubeVideoId: 'R-sVn3-Y68M', 
                 title: 'Qu\'est-ce que la Science Cognitive ?', 
                 uploader: 'Ryan Rhodes', 
+                views: null,
                 aiSummary: 'Une introduction claire à ce qu\'est la science cognitive. La vidéo la décrit comme l\'étude interdisciplinaire de l\'esprit et de ses processus, à l\'intersection de la psychologie, l\'informatique, la philosophie, les neurosciences et la linguistique.',
                 keywords: ['Science Cognitive', 'Interdisciplinaire', 'Esprit', 'Psychologie', 'Informatique'],
                 transcription: 'Cognitive science is the interdisciplinary, scientific study of the mind and its processes... (transcription simulée)...',
@@ -520,7 +511,11 @@
 
                 const card = document.createElement('div');
                 card.className = 'video-card rounded-lg shadow-lg overflow-hidden flex flex-col cursor-pointer';
-                card.onclick = () => showVideoPlayer(video); 
+                
+                // --- CORRECTIF (Clics Vidéos) ---
+                // On attache l'ID vidéo directement à la carte.
+                card.setAttribute('data-video-id', video.id);
+                // On attache un seul écouteur d'événement à la grille plus tard.
                 
                 card.innerHTML = `
                     <div class="video-thumbnail-container">
@@ -530,8 +525,7 @@
                     <div class="p-4 flex-grow flex flex-col">
                         <h3 class="font-semibold text-lg mb-1 truncate" title="${video.title}">${video.title}</h3>
                         <p class="text-gray-600 text-sm">${video.uploader}</p>
-                        <!-- CORRECTIF (Vues) : Affiche seulement si 'video.views' existe. Sinon, met un placeholder pour garder la taille. -->
-                        ${video.views ? `<p class="text-gray-500 text-xs mb-2">${video.views} vues</p>` : `<p class="text-gray-500 text-xs mb-2">&nbsp;</p>`}
+                        ${video.views ? `<p class="text-gray-500 text-xs mb-2">${video.views} vues</p>` : `<p class="text-gray-500 text-xs mb-2">&nbsp;</Vp>`}
                         <p class="summary-preview">${video.aiSummary || 'Pas de résumé.'}</p>
                         
                         <div class="mt-auto pt-3 flex flex-wrap gap-1.5">
@@ -554,6 +548,7 @@
                 videoGrid.appendChild(card);
             });
 
+            // On ajoute les écouteurs d'événements pour les boutons admin
             if (isAdmin) {
                 document.querySelectorAll('.edit-video-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
@@ -569,6 +564,20 @@
                 });
             }
         }
+        
+        // --- CORRECTIF (Clics Vidéos) ---
+        // On ajoute un seul écouteur d'événement sur la grille (plus performant)
+        // qui gère les clics sur n'importe quelle carte vidéo.
+        videoGrid.addEventListener('click', (event) => {
+            const videoCard = event.target.closest('.video-card');
+            if (videoCard && videoCard.dataset.videoId) {
+                const videoId = videoCard.dataset.videoId;
+                const videoToShow = allVideos.find(v => v.id === videoId);
+                if (videoToShow) {
+                    showVideoPlayer(videoToShow);
+                }
+            }
+        });
 
         function updateKeywordFilter() {
             const currentValue = keywordFilter.value;
@@ -618,16 +627,18 @@
         }
 
         function showVideoPlayer(video) {
+            if (!video) {
+                console.error("showVideoPlayer a été appelé avec une vidéo non valide.");
+                return;
+            }
             videoGridPage.classList.add('hidden');
             videoPlayerPage.classList.remove('hidden');
             
-            // CORRECTIF (Clics Vidéos) : Utilise youtube-nocookie.com
             mainVideoPlayerIframe.src = `https://www.youtube-nocookie.com/embed/${video.youtubeVideoId}?autoplay=1&rel=0`;
             
             videoTitleElem.textContent = video.title;
             videoUploaderElem.textContent = video.uploader;
             
-            // CORRECTIF (Vues) : Cache ou montre la section
             if (video.views && video.views.trim() !== '') {
                 videoViewsElem.textContent = video.views;
                 videoViewsElem.parentElement.classList.remove('hidden');
@@ -641,7 +652,6 @@
                 (video.transcription.substring(0, 500) + '...') : 
                 'Aucune transcription disponible.';
 
-            // CORRECTIF (Annotations) : Cache ou montre la section
             if (video.adminAnnotation && video.adminAnnotation.trim() !== '') {
                 videoAdminAnnotation.textContent = video.adminAnnotation;
                 adminAnnotationSection.classList.remove('hidden');
@@ -674,7 +684,7 @@
             filterAndDisplayVideos();
         }
 
-        // --- Logique Administrateur ---
+// --- Logique Administrateur ---
 
         function setAdminState(isLoggedIn) {
             isAdmin = isLoggedIn;
@@ -700,7 +710,7 @@
             previewChannel.value = videoToEdit.uploader;
             previewAiSummary.value = videoToEdit.aiSummary;
             previewKeywords.value = videoToEdit.keywords.join(', ');
-            document.getElementById('previewViews').value = videoToEdit.views || ''; // Stocke les vues existantes
+            document.getElementById('previewViews').value = videoToEdit.views || ''; 
             
             youtubeInfoPreview.classList.remove('hidden');
             previewContent.classList.remove('hidden');
@@ -748,7 +758,6 @@
 
             document.getElementById('submitAdminLogin').addEventListener('click', () => {
                 const password = document.getElementById('adminPassword').value;
-                // CORRECTIF (Admin PW) : Le mot de passe est ici
                 if (password === 'admin123') { 
                     setAdminState(true);
                     hideModal(adminLoginModal);
@@ -805,7 +814,7 @@
                     previewChannel.value = data.uploader;
                     previewAiSummary.value = data.aiSummary;
                     previewKeywords.value = data.keywords.join(', ');
-                    document.getElementById('previewViews').value = data.views; // Ajouté pour stocker les vraies vues
+                    document.getElementById('previewViews').value = data.views;
                     
                     previewLoader.classList.add('hidden');
                     previewContent.classList.remove('hidden');
@@ -825,7 +834,6 @@
                     youtubeVideoId: getYouTubeVideoId(youtubeVideoUrlInput.value),
                     title: previewTitle.value,
                     uploader: previewChannel.value,
-                    // CORRECTIF (Vues) : Utilise les vraies vues du backend (ou null)
                     views: document.getElementById('previewViews').value || null, 
                     aiSummary: previewAiSummary.value,
                     keywords: previewKeywords.value.split(',').map(kw => kw.trim()).filter(Boolean),
