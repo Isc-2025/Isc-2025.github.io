@@ -1,156 +1,100 @@
 /*
-* =================================================================
-* LE SERVEUR BACKEND (LE "MOTEUR")
-* Fichier: backend_server.js
-* =================================================================
-* Ce script est le "moteur" qui tournera sur Render.
-* Il attend les requêtes du frontend (votre index.html).
-* Quand il reçoit une URL, il la traite (simulation)
-* et renvoie le résumé et les mots-clés.
-* =================================================================
+* ===============================================
+* SERVEUR BACKEND POUR LA PLATEFORME VIDÉO ISC
+* ===============================================
+* Ce serveur gère :
+* 1. La base de données (simulée) des vidéos.
+* 2. L'analyse (simulée) de nouvelles vidéos.
+* 3. Le proxy pour les miniatures YouTube (pour contourner les blocages).
+* 4. L'appel (futur) à l'API YouTube pour les vraies données.
 */
 
-// --- Importation des modules nécessaires ---
-// 'express' est le framework pour construire le serveur web
 import express from 'express';
-// 'cors' permet à votre frontend (sur github.io) de parler à ce backend (sur render.com)
 import cors from 'cors';
-// 'https' est nécessaire pour appeler l'API Gemini
-import https from 'https';
+import https from 'https'; // Pour le proxy
+import axios from 'axios'; // Pour le proxy et l'API YouTube
 
-// --- Initialisation du serveur ---
 const app = express();
-const port = process.env.PORT || 3000; // Render fournira sa propre variable PORT
+const port = process.env.PORT || 3000;
 
-// --- Configuration des "Middlewares" ---
-// Active CORS pour toutes les requêtes (accepte les appels depuis n'importe quel domaine)
-app.use(cors());
-// Permet au serveur de comprendre le JSON envoyé par le frontend
-app.use(express.json());
+// --- Middlewares ---
+app.use(cors()); // Autorise les requêtes de votre frontend (GitHub Pages / Render)
+app.use(express.json()); // Permet au serveur de comprendre le JSON
 
-// --- Simulation de la base de données ---
-// Dans un vrai projet, ces données seraient dans une base (Firestore, MongoDB, etc.)
-// Ici, on les garde en mémoire pour la simulation.
-let videoDatabase = [
-    // Données d'exemple (celles de votre index.html)
-    { 
-        id: 'yt001', 
-        youtubeVideoId: 'f-m4q_v2v2c',
-        title: 'Où va l\'IA ? (Feu de Bengale)', 
-        uploader: 'Feu de Bengale', 
-        views: '215K', 
-        aiSummary: 'Analyse approfondie de la trajectoire actuelle de l\'intelligence artificielle, de ses capacités émergentes (modèles de langage) aux risques sociétaux et existentiels. Discussion sur l\'alignement et la régulation.',
-        keywords: ['IA', 'Modèles de Langage', 'Éthique', 'Alignement', 'Régulation'],
-        adminAnnotation: 'Excellent point de départ pour le cours d\'introduction. Couvre bien les enjeux actuels de l\'IA générative.',
-        transcription: 'L\'intelligence artificielle est à un tournant. Les modèles de langage comme GPT-4 montrent des capacités... (transcription simulée)...'
+// --- CLÉ API (Pour le futur) ---
+// À AJOUTER DANS LES VARIABLES D'ENVIRONNEMENT SUR RENDER
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+
+// ===============================================
+// BASE DE DONNÉES (SIMULÉE)
+// ===============================================
+// À terme, ceci devrait être remplacé par une vraie base de données (Firestore, MongoDB, etc.)
+let allVideos = [
+    {
+        "id": "yt001",
+        "youtubeVideoId": "S15e-qC1S0I",
+        "title": "Où va l'IA ? (Feu de Bengale)",
+        "uploader": "Feu de Bengale • 215K vues",
+        "keywords": ["IA", "Modèles de Langage", "Éthique", "Alignement", "Régulation"],
+        "summary": "Analyse approfondie de la trajectoire actuelle de l'intelligence artificielle, de ses capacités émergentes (modèles de langage) aux risques sociétaux et existentiels. Discussion sur l'alignement et la régulation.",
+        "adminAnnotation": "Excellent point de départ pour le débat sur l'IA forte. Pertinent pour le cours ISC-8001."
     },
-    // ... (les autres vidéos d'exemple)
+    {
+        "id": "yt002",
+        "youtubeVideoId": "9to-e4c1Eho",
+        "title": "Le Problème Difficile de la Conscience (David Chalmers)",
+        "uploader": "David Chalmers (TED) • 2.5M vues",
+        "keywords": ["Conscience", "Philosophie", "Neurosciences", "Problème Difficile", "Subjectivité"],
+        "summary": "Le philosophe David Chalmers explore le \"problème difficile\" de la conscience : pourquoi et comment les processus physiques du cerveau donnent-ils lieu à une expérience subjective riche ? Il distingue les problèmes \"faciles\" (mécanismes) du problème \"difficile\" (l'expérience elle-même).",
+        "adminAnnotation": ""
+    },
+    {
+        "id": "yt003",
+        "youtubeVideoId": "7s0CpR_FNA4",
+        "title": "La Théorie du Langage de Chomsky",
+        "uploader": "The Brain Maze • 325K vues",
+        "keywords": ["Langage", "Linguistique", "Chomsky", "Grammaire Universelle", "Cognition"],
+        "summary": "Cette vidéo résume les concepts clés de la théorie linguistique de Noam Chomsky, notamment la grammaire universelle, l'innéisme et le dispositif d'acquisition du langage (LAD). Elle oppose sa vision aux approches béhavioristes.",
+        "adminAnnotation": "Référence classique pour l'acquisition du langage."
+    },
+    {
+        "id": "yt004",
+        "youtubeVideoId": "rS1-50LY0gA",
+        "title": "Qu'est-ce que la Science Cognitive ?",
+        "uploader": "Ryan Rhodes • 110K vues",
+        "keywords": ["Science Cognitive", "Interdisciplinaire", "Esprit", "Cerveau", "Computation"],
+        "summary": "Une introduction claire à ce qu'est la science cognitive. La vidéo la définit comme l'étude interdisciplinaire de l'esprit et de l'intelligence, combinant la psychologie, l'informatique, les neurosciences, la linguistique et la philosophie.",
+        "adminAnnotation": "Bonne vidéo d'introduction pour les nouveaux étudiants."
+    },
+    {
+        "id": "yt005",
+        "youtubeVideoId": "Rz1x02nnlqg",
+        "title": "La conscience, par Stanislas Dehaene",
+        "uploader": "Collège de France • 180K vues",
+        "keywords": ["Conscience", "Stanislas Dehaene", "Espace de Travail Global", "Neurosciences", "Signature Cérébrale"],
+        "summary": "Stanislas Dehaene présente ses travaux sur les \"signatures\" cérébrales de la conscience. Il expose la théorie de l'espace de travail neuronal global (Global Neuronal Workspace), suggérant que la conscience émerge lorsqu'une information est largement diffusée à travers différents modules cérébraux.",
+        "adminAnnotation": ""
+    },
+    {
+        "id": "yt006",
+        "youtubeVideoId": "i3OYlaoj-SY",
+        "title": "Yuval Harari et Lex Fridman sur l'IA",
+        "uploader": "Lex Fridman • 5.2M vues",
+        "keywords": ["IA", "Yuval Noah Harari", "Lex Fridman", "Société", "Avenir"],
+        "summary": "Une conversation profonde entre Yuval Noah Harari et Lex Fridman sur l'impact potentiel de l'intelligence artificielle sur l'humanité, l'avenir des sociétés, le pouvoir narratif et les risques existentiels.",
+        "adminAnnotation": "Perspective philosophique et sociétale importante."
+    }
 ];
 
-// --- Fonction d'appel à l'IA Gemini (Simulation) ---
-// C'est ici que vous feriez le VRAI appel à yt-dlp et à l'API Gemini.
-// Pour ce projet, nous simulons une réponse de l'IA.
-async function getAiAnalysis(videoUrl, adminAnnotation) {
-    console.log(`[Backend] Simulation de l'analyse IA pour: ${videoUrl}`);
-    
-    // 1. SIMULATION de yt-dlp (extraction d'infos)
-    // Dans la vraie vie: execSync('yt-dlp --dump-json ' + videoUrl);
-    const simulatedVideoInfo = {
-        title: "Titre simulé depuis le backend",
-        uploader: "Chaîne YouTube simulée",
-        // ... autres infos
-    };
+// ===============================================
+// ROUTES DE L'API
+// ===============================================
 
-    // 2. SIMULATION de la transcription (en français, comme demandé)
-    const simulatedTranscription = `Ceci est une transcription simulée en français. Le conférencier parle de l'importance des sciences cognitives et de la manière dont les modèles d'IA peuvent nous aider à comprendre l'esprit humain. Il mentionne également les défis éthiques.`;
-
-    // 3. SIMULATION de l'appel à l'API Gemini (Req #2, #3)
-    // C'est ici que vous enverriez `simulatedTranscription` à l'API.
-    // L'API Gemini vous renverrait un objet JSON comme celui-ci :
-    const simulatedGeminiResponse = {
-        summary: "Le conférencier discute de l'intersection entre les sciences cognitives et l'IA, en soulignant à la fois le potentiel de compréhension de l'esprit et les défis éthiques associés.",
-        keywords: ["IA", "Sciences Cognitives", "Esprit Humain", "Éthique", "Modèles"]
-    };
-
-    // Simule un délai réseau (pour que le loader s'affiche)
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // 4. Retourne l'objet vidéo complet
-    return {
-        id: 'temp_' + Date.now(),
-        youtubeVideoId: getYouTubeVideoId(videoUrl) || 'dQw4w9WgXcQ', // Fallback
-        title: simulatedVideoInfo.title,
-        uploader: simulatedVideoInfo.uploader,
-        views: "0",
-        aiSummary: simulatedGeminiResponse.summary,
-        keywords: simulatedGeminiResponse.keywords,
-        adminAnnotation: adminAnnotation, // On sauvegarde l'annotation de l'admin
-        transcription: simulatedTranscription
-    };
-}
-
-// Fonction utilitaire (copiée de votre HTML)
-function getYouTubeVideoId(url) {
-    const patterns = [
-        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
-        /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
-    ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) {
-            return match[1];
-        }
-    }
-    return null;
-}
-
-// --- Définition des "Routes" API ---
-
-// Route 1: (GET /api/videos) - Récupérer toutes les vidéos
-// (Non utilisé dans votre HTML actuel, mais c'est une bonne pratique)
+// Route 1 : Obtenir toutes les vidéos
+// C'est ce que le frontend appelle au chargement.
 app.get('/api/videos', (req, res) => {
-    console.log("[Backend] Requête GET reçue pour /api/videos");
-    res.json(videoDatabase);
+    // À l'avenir, on pourrait appeler l'API YouTube ici pour mettre à jour les vues
+    res.json(allVideos);
 });
 
-// Route 2: (POST /api/add-video) - Ajouter et analyser une nouvelle vidéo
-// C'est la route la plus importante, appelée par votre bouton "Récupérer et Analyser"
-app.post('/api/add-video', async (req, res) => {
-    const { videoUrl, adminAnnotation } = req.body;
-    console.log(`[Backend] Requête POST reçue pour /api/add-video avec URL: ${videoUrl}`);
-
-    if (!videoUrl) {
-        return res.status(400).json({ error: 'URL de la vidéo manquante' });
-    }
-
-    try {
-        // Appelle la fonction (simulée) de traitement
-        const newVideoData = await getAiAnalysis(videoUrl, adminAnnotation);
-        
-        // Ajoute la nouvelle vidéo à notre "base de données" en mémoire
-        // (Dans un vrai projet, vous feriez un INSERT SQL ou NoSQL ici)
-        // videoDatabase.unshift(newVideoData); // Note: le frontend gère l'ajout
-        
-        console.log("[Backend] Analyse IA terminée. Envoi de la réponse.");
-        // Renvoie les données traitées au frontend
-        res.status(201).json(newVideoData);
-
-    } catch (error) {
-        console.error("[Backend] Erreur durant l'analyse:", error);
-        res.status(500).json({ error: "Erreur lors de l'analyse de la vidéo" });
-    }
-});
-
-// Route 3: (GET /) - Route de "santé"
-// Permet de vérifier que le serveur est bien en ligne
-app.get('/', (req, res) => {
-    res.send('Serveur Backend ISC - En ligne et opérationnel!');
-});
-
-// --- Démarrage du serveur ---
-app.listen(port, () => {
-    console.log(`[Backend] Serveur démarré sur http://localhost:${port}`);
-    console.log('Ce serveur est le "moteur" (backend).');
-    console.log('Le fichier index.html est la "vitrine" (frontend).');
-});
-
+// Route
