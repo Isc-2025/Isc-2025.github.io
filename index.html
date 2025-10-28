@@ -3,23 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Le titre qui apparaît dans l'onglet du navigateur -->
+    
+    <!-- 
+      CORRECTIF (Clics Vidéos) : 
+      Ajout de la politique de sécurité (CSP).
+      Ceci autorise explicitement le chargement des iframes de youtube.com.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' https: 'unsafe-inline'; 
+        frame-src 'self' https://www.youtube.com; 
+        img-src 'self' data: https:;
+        script-src 'self' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com 'unsafe-inline';
+        style-src 'self' https: 'unsafe-inline';
+        font-src 'self' https: data:;
+    ">
+
     <title>Plateforme Vidéo ISC</title>
-    <!-- Chargement de Tailwind CSS pour le style -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chargement des icônes (Font Awesome) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <!-- Chargement de la police 'Inter' depuis Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Définition des couleurs personnalisées */
         :root {
-            --brand-dark: #003366; /* Bleu foncé (type UQAM) */
-            --brand-light: #337ab7; /* Bleu plus clair */
-            --brand-grey-light: #f0f0f0; /* Gris de fond */
-            --brand-grey-med: #cccccc;   /* Gris moyen */
+            --brand-dark: #003366; 
+            --brand-light: #337ab7; 
+            --brand-grey-light: #f0f0f0; 
+            --brand-grey-med: #cccccc;   
         }
-        /* Application de la police et des couleurs */
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: var(--brand-grey-light); 
@@ -52,7 +61,6 @@
             box-shadow: 0 0 0 3px rgba(51, 122, 183, 0.25);
             outline: none;
         }
-        /* Style pour les étiquettes de mots-clés */
         .keyword-tag {
             background-color: #e2e8f0;
             color: #4a5568;
@@ -66,7 +74,6 @@
         .keyword-tag:hover {
             background-color: #cbd5e0;
         }
-        /* Style pour le lecteur vidéo et les modales */
         .video-player-container { background-color: black; }
         .video-info { background-color: white; }
         .modal-overlay { 
@@ -78,7 +85,7 @@
         .modal-content { 
             background-color: white; padding: 25px; border-radius: 8px; 
             box-shadow: 0 5px 20px rgba(0,0,0,0.3); 
-            width: 90%; max-width: 600px; /* Augmenté pour plus de contenu */
+            width: 90%; max-width: 600px; 
         }
         .modal-content h3 { color: var(--brand-dark); margin-bottom: 15px; }
         .modal-content label { 
@@ -100,8 +107,6 @@
             outline: none;
         }
         .modal-content textarea { min-height: 100px; }
-
-        /* Style pour la miniature (requête #4) */
         .video-thumbnail-container {
             width: 100%;
             padding-bottom: 56.25%; /* Ratio 16:9 */
@@ -115,10 +120,15 @@
             position: absolute;
             top: 0;
             left: 0;
-            object-fit: cover; /* Assure que l'image couvre le conteneur */
+            object-fit: cover; 
+            /* CORRECTIF (Miniatures) : 
+              L'attribut 'referrerpolicy' est ajouté par JS, mais on le met ici
+              pour l'image de la modale de prévisualisation.
+            */
         }
-        
-        /* Style pour l'aperçu du résumé (requête #4) */
+        #previewThumbnail {
+             referrerpolicy="no-referrer";
+        }
         .summary-preview {
             font-size: 0.875rem; /* 'text-sm' */
             color: #4a5568;
@@ -126,12 +136,10 @@
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
-            -webkit-line-clamp: 3; /* Limite à 3 lignes */
+            -webkit-line-clamp: 3; 
             -webkit-box-orient: vertical;
-            height: 4.1rem; /* Environ 3 lignes de texte */
+            height: 4.1rem; 
         }
-        
-        /* Style pour les descriptions/résumés sur la page de détail */
         .content-section {
             background-color: #f9f9f9;
             padding: 16px;
@@ -144,8 +152,6 @@
             font-semibold: 600;
             margin-bottom: 8px;
         }
-
-        /* Indicateur de chargement */
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid var(--brand-light);
@@ -166,39 +172,31 @@
     <!-- Entête -->
     <header class="header-bg text-white p-4 shadow-md sticky top-0 z-50">
         <div class="container mx-auto flex flex-wrap items-center justify-between gap-4">
-            <!-- Titre du site, clique pour retourner à l'accueil -->
             <a href="#" onclick="showHomePage(); return false;" class="text-xl sm:text-2xl font-bold hover:text-gray-200 transition">
                 Plateforme Vidéo ISC
             </a>
             
-            <!-- Section de droite (Recherche et Admin) -->
             <div class="w-full md:w-auto flex flex-col md:flex-row items-center gap-2">
-                
-                <!-- Barre de recherche (Req #6) -->
                 <div class="relative w-full md:w-auto">
-                    <input type-="search" id="searchInput" class="search-input w-full md:w-64 lg:w-80 p-2 pl-10 rounded-md text-gray-800 focus:outline-none" placeholder="Rechercher par titre, texte...">
+                    <input type="search" id="searchInput" class="search-input w-full md:w-64 lg:w-80 p-2 pl-10 rounded-md text-gray-800 focus:outline-none" placeholder="Rechercher par titre, texte...">
                     <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                         <i class="fas fa-search"></i>
                     </span>
                 </div>
 
-                <!-- Filtre par mots-clés (Req #6) -->
                 <div class="relative w-full md:w-auto">
                     <select id="keywordFilter" class="search-input w-full md:w-48 p-2 rounded-md text-gray-800 appearance-none bg-white pr-8">
                         <option value="">Filtrer par mot-clé...</option>
-                        <!-- Les options seront ajoutées par JS -->
                     </select>
                     <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
                         <i class="fas fa-chevron-down fa-xs"></i>
                     </span>
                 </div>
 
-                <!-- Bouton d'accès Admin (Req #3) -->
                 <button id="adminLoginButton" class="button-secondary font-semibold py-2 px-4 rounded-md w-full md:w-auto">
                     Accès Admin
                 </button>
 
-                <!-- Boutons Admin (cachés par défaut) -->
                 <div id="adminControlsContainer" class="hidden w-full md:w-auto">
                      <button id="addYoutubeVideoBtn" class="button-primary font-semibold py-2 px-4 rounded-md w-full">
                         <i class="fab fa-youtube mr-2"></i>Ajouter Vidéo
@@ -214,62 +212,53 @@
         <!-- Page d'accueil (Grille des vidéos) -->
         <section id="videoGridPage">
             <h2 class="text-2xl font-semibold text-gray-700 mb-6">Vidéos disponibles</h2>
-            <!-- La grille où les vidéos seront insérées par JS -->
             <div id="videoGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Les cartes de vidéos sont générées par JS ici -->
             </div>
-            <!-- Indicateur de chargement -->
             <div id="gridLoader" class="loader hidden"></div>
-            <!-- Message si aucune vidéo n'est trouvée -->
             <p id="noResultsMessage" class="text-center text-gray-500 mt-8 hidden">Aucune vidéo ne correspond à votre recherche.</p>
         </section>
 
         <!-- Page de lecture vidéo (cachée par défaut) -->
         <section id="videoPlayerPage" class="hidden">
             <div class="max-w-4xl mx-auto">
-                <!-- Bouton Retour -->
                 <button onclick="showHomePage(); return false;" class="button-primary mb-4 py-2 px-4 rounded-md">
                     <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
                 </button>
                 
-                <!-- Lecteur Vidéo (Req #1) -->
                 <div class="video-player-container rounded-lg shadow-xl overflow-hidden mb-4">
                      <iframe id="mainVideoPlayerIframe" width="100%" class="aspect-video" src="" title="Lecteur vidéo YouTube" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
                 </div>
                 
-                <!-- Titre de la vidéo -->
                 <h2 id="videoTitleElem" class="text-3xl font-bold mb-4 text-gray-800"></h2>
                 
-                <!-- Infos (Req #5) -->
                 <div class="video-info p-6 mt-4 rounded-lg shadow-lg">
                     
-                    <!-- Section Résumé IA (Req #2) -->
                     <div class="content-section">
                         <h3><i class="fas fa-robot mr-2"></i>Résumé par IA</h3>
                         <p id="videoAiSummary" class="text-gray-700 whitespace-pre-line"></p>
                     </div>
 
-                    <!-- Section Mots-clés (Req #2) -->
                     <div class="content-section">
                         <h3><i class="fas fa-tags mr-2"></i>Mots-clés</h3>
                         <div id="videoKeywordsContainer" class="flex flex-wrap gap-2">
-                            <!-- Les mots-clés sont ajoutés par JS ici -->
                         </div>
                     </div>
                     
-                    <!-- Section Annotation Admin (Req #3) -->
-                    <div class="content-section">
+                    <!-- 
+                      CORRECTIF (Annotations) : 
+                      Ajout d'un ID et 'hidden' pour pouvoir cacher/montrer
+                    -->
+                    <div id="adminAnnotationSection" class="content-section hidden">
                         <h3><i class="fas fa-user-edit mr-2"></i>Annotation de l'administrateur</h3>
                         <p id="videoAdminAnnotation" class="text-gray-700 whitespace-pre-line"></p>
                     </div>
                     
-                    <!-- Section Transcription (Req #5) -->
                     <div class="content-section">
                         <h3><i class="fas fa-file-alt mr-2"></i>Transcription (Extrait)</h3>
                         <p id="videoTranscription" class="text-gray-700 whitespace-pre-line text-sm max-h-48 overflow-y-auto bg-white p-3 rounded"></p>
                     </div>
 
-                    <!-- Infos de base (simulées) -->
                     <div class="mt-6 pt-4 border-t">
                         <p id="videoUploader" class="text-gray-600 mb-1">Par: <span class="font-semibold"></span></p>
                         <p id="videoViews" class="text-gray-600 mb-4">Vues: <span class="font-semibold"></span></p>
@@ -279,12 +268,11 @@
         </section>
     </main>
 
-    <!-- Pied de page -->
     <footer class="text-center p-4 mt-8 text-gray-600 border-t border-gray-300">
         © 2025 Plateforme ISC
     </footer>
 
-    <!-- Modale pour message simple (ex: "Lien copié") -->
+    <!-- Modales -->
     <div id="messageModal" class="modal-overlay hidden" onclick="hideModal(this)">
         <div class="modal-content max-w-sm text-center" onclick="event.stopPropagation()">
             <p id="modalMessageText" class="text-lg"></p>
@@ -292,7 +280,6 @@
         </div>
     </div>
 
-    <!-- Modale de connexion Admin (Req #3) -->
     <div id="adminLoginModal" class="modal-overlay hidden">
         <div class="modal-content" onclick="event.stopPropagation()">
             <h3 class="text-xl font-semibold">Accès Administrateur</h3>
@@ -305,7 +292,6 @@
         </div>
     </div>
 
-    <!-- Modale d'ajout de vidéo (Req #3) -->
     <div id="addYoutubeVideoModal" class="modal-overlay hidden">
         <div class="modal-content" onclick="event.stopPropagation()">
             <h3 class="text-xl font-semibold">Ajouter/Modifier une Vidéo YouTube</h3>
@@ -314,16 +300,17 @@
             <label for="youtubeVideoUrl">URL de la vidéo YouTube :</label>
             <input type="text" id="youtubeVideoUrl" placeholder="https://www.youtube.com/watch?v=...">
             
-            <!-- Bouton pour lancer la récupération et l'analyse -->
             <button id="fetchYoutubeInfoBtn" class="button-secondary py-2 px-4 rounded-md mb-3 w-full">
                 <i class="fas fa-cogs mr-2"></i>Récupérer et Analyser (Simulation Backend)
             </button>
 
-            <!-- Section de prévisualisation (remplie par le backend) -->
             <div id="youtubeInfoPreview" class="mb-3 hidden p-4 bg-gray-50 rounded border">
                 <div id="previewLoader" class="loader hidden"></div>
                 <div id="previewContent">
-                    <!-- CORRECTIF MINIATURE: Ajout de referrerpolicy="no-referrer" -->
+                    <!-- 
+                      CORRECTIF (Miniatures) : 
+                      L'image est maintenant chargée depuis le backend (voir JS)
+                    -->
                     <img id="previewThumbnail" src="" alt="Miniature" class="w-full h-auto my-2 border rounded" referrerpolicy="no-referrer">
                     
                     <label for="previewTitle">Titre (de YouTube) :</label>
@@ -332,17 +319,14 @@
                     <label for="previewChannel">Chaîne (de YouTube) :</label>
                     <input type="text" id="previewChannel" class="bg-gray-200" readonly>
                     
-                    <!-- Champ Résumé IA (Req #2) -->
                     <label for="previewAiSummary">Résumé par IA (généré) :</label>
                     <textarea id="previewAiSummary" class="bg-gray-200" readonly></textarea>
                     
-                    <!-- Champ Mots-clés IA (Req #2) -->
                     <label for="previewKeywords">Mots-clés (générés) :</label>
                     <input type="text" id="previewKeywords" class="bg-gray-200" readonly>
                 </div>
             </div>
 
-            <!-- Champ Annotation Admin (Req #3) -->
             <label for="adminCustomAnnotation">Annotation personnelle :</label>
             <textarea id="adminCustomAnnotation" placeholder="Ajoutez votre analyse ou vos notes personnelles ici..."></textarea>
             
@@ -358,66 +342,76 @@
         // --- Configuration ---
         
         // !!!!!!!!!!!!!!!!!!! ATTENTION !!!!!!!!!!!!!!!!!!!
-        // C'EST LA LIGNE LA PLUS IMPORTANTE À MODIFIER.
-        // Mettez ici l'URL que RENDER vous a donnée pour votre backend.
-        // Laissez-la comme 'http://localhost:3000' pour tester sur votre machine.
-        //
+        // C'EST LA LIGNE LA PLUS IMPORTANTE.
+        // Mettez ici l'URL que RENDER vous a donnée.
         // EXEMPLE DE PRODUCTION:
-        // const backendApiUrl = 'https://mon-backend-isc.onrender.com'; 
+        // const backendApiUrl = 'https://plateforme-isc.onrender.com'; 
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        const backendApiUrl = 'http://localhost:3000'; // Adresse pour le test local
+        
+        // Ceci est une variable globale, assurez-vous qu'elle est définie
+        // avant tout autre script qui pourrait l'utiliser (elle est ici)
+        let backendApiUrl = 'http://localhost:3000'; // Par défaut pour le test local
+
+        // Logique pour détecter si on est en production (GitHub Pages)
+        if (window.location.hostname.includes('github.io')) {
+            // REMPLACEZ CECI par l'URL de votre backend Render
+            backendApiUrl = 'https://plateforme-isc-2025.onrender.com'; // <-- METTEZ VOTRE URL RENDER ICI
+            console.log('Mode Production (GitHub Pages) - API Backend:', backendApiUrl);
+        } else {
+            console.log('Mode Local - API Backend:', backendApiUrl);
+        }
 
         // --- État Global de l'Application ---
         let isAdmin = false;
-        let allVideos = []; // La "base de données" locale de toutes les vidéos
-        let allKeywords = new Set(); // Pour remplir le filtre (Req #6)
+        let allVideos = []; 
+        let allKeywords = new Set(); 
 
-        // Données d'exemple pour le premier chargement (Req #4)
-        // (Titres et descriptions en français, comme demandé)
+        // Données d'exemple
+        // CORRECTIF (Annotations) : 'adminAnnotation' a été supprimé
         const sampleVideos = [
             { 
                 id: 'yt001', 
-                youtubeVideoId: 'f-m4q_v2v2c', // "Où va l'IA ? (Feu de Bengale)"
+                youtubeVideoId: 'f-m4q_v2v2c', 
                 title: 'Où va l\'IA ? (Feu de Bengale)', 
                 uploader: 'Feu de Bengale', 
                 views: '215K', 
                 aiSummary: 'Analyse approfondie de la trajectoire actuelle de l\'intelligence artificielle, de ses capacités émergentes (modèles de langage) aux risques sociétaux et existentiels. Discussion sur l\'alignement et la régulation.',
                 keywords: ['IA', 'Modèles de Langage', 'Éthique', 'Alignement', 'Régulation'],
-                adminAnnotation: 'Excellent point de départ pour le cours d\'introduction. Couvre bien les enjeux actuels de l\'IA générative.',
-                transcription: 'L\'intelligence artificielle est à un tournant. Les modèles de langage comme GPT-4 montrent des capacités... (transcription simulée)...'
+                transcription: 'L\'intelligence artificielle est à un tournant. Les modèles de langage comme GPT-4 montrent des capacités... (transcription simulée)...',
+                adminAnnotation: '' // Laissé vide
             },
             { 
                 id: 'yt002', 
-                youtubeVideoId: 'cmyw3z-1tF8', // "The Hard Problem of Consciousness (David Chalmers)"
+                youtubeVideoId: 'cmyw3z-1tF8', 
                 title: 'Le Problème Difficile de la Conscience (David Chalmers)', 
                 uploader: 'David Chalmers (TED)', 
                 views: '2.5M', 
                 aiSummary: 'Le philosophe David Chalmers explore le "Problème Difficile" de la conscience : pourquoi et comment les processus physiques du cerveau donnent-ils lieu à une expérience subjective riche ? Il distingue les problèmes "faciles" (mécanismes) du problème "difficile" (l\'expérience elle-même).',
                 keywords: ['Conscience', 'Philosophie', 'Neurosciences', 'Problème Difficile', 'Subjectivité'],
-                adminAnnotation: 'Fondamental pour comprendre le débat en philosophie de l\'esprit. La distinction facile/difficile est cruciale.',
-                transcription: 'There is nothing that we know more intimately than conscious experience... (transcription simulée)...'
+                transcription: 'There is nothing that we know more intimately than conscious experience... (transcription simulée)...',
+                adminAnnotation: ''
             },
             { 
                 id: 'yt003', 
-                youtubeVideoId: 'S52AduLd81A', // "The Theory of Language of Chomsky"
+                youtubeVideoId: 'S52AduLd81A', 
                 title: 'La Théorie du Langage de Chomsky', 
                 uploader: 'The Brain Maze', 
                 views: '325K', 
                 aiSummary: 'Cette vidéo résume les concepts clés de la théorie linguistique de Noam Chomsky, notamment la grammaire universelle, l\'innéisme et le dispositif d\'acquisition du langage (LAD). Elle oppose sa vision nativiste aux approches béhavioristes.',
                 keywords: ['Langage', 'Linguistique', 'Chomsky', 'Grammaire Universelle', 'Cognition'],
-                adminAnnotation: 'Référence classique. Important de contraster avec les approches connexionnistes modernes qui apprennent "de zéro".',
-                transcription: 'Noam Chomsky revolutionized linguistics by proposing that the ability to learn language is innate... (transcription simulée)...'
+                transcription: 'Noam Chomsky revolutionized linguistics by proposing that the ability to learn language is innate... (transcription simulée)...',
+                adminAnnotation: ''
             },
             { 
                 id: 'yt004', 
-                youtubeVideoId: 'R-sVn3-Y68M', // "What is cognitive science?"
+                youtubeVideoId: 'R-sVn3-Y68M', 
                 title: 'Qu\'est-ce que la Science Cognitive ?', 
                 uploader: 'Ryan Rhodes', 
                 views: '180K', 
                 aiSummary: 'Une introduction claire à ce qu\'est la science cognitive. La vidéo la décrit comme l\'étude interdisciplinaire de l\'esprit et de ses processus, à l\'intersection de la psychologie, l\'informatique, la philosophie, les neurosciences et la linguistique.',
                 keywords: ['Science Cognitive', 'Interdisciplinaire', 'Esprit', 'Psychologie', 'Informatique'],
-                adminAnnotation: 'Bonne vidéo d\'introduction pour les nouveaux étudiants.',
-                transcription: 'Cognitive science is the interdisciplinary, scientific study of the mind and its processes... (transcription simulée)...'
+                transcription: 'Cognitive science is the interdisciplinary, scientific study of the mind and its processes... (transcription simulée)...',
+                adminAnnotation: ''
             }
         ];
 
@@ -430,7 +424,6 @@
         const videoGridPage = document.getElementById('videoGridPage');
         const videoPlayerPage = document.getElementById('videoPlayerPage');
         
-        // Éléments de la page de lecture
         const mainVideoPlayerIframe = document.getElementById('mainVideoPlayerIframe');
         const videoTitleElem = document.getElementById('videoTitleElem');
         const videoAiSummary = document.getElementById('videoAiSummary');
@@ -439,19 +432,18 @@
         const videoTranscription = document.getElementById('videoTranscription');
         const videoUploaderElem = document.getElementById('videoUploader').querySelector('span');
         const videoViewsElem = document.getElementById('videoViews').querySelector('span');
+        // CORRECTIF (Annotations) : Référence à la section
+        const adminAnnotationSection = document.getElementById('adminAnnotationSection');
         
-        // Éléments Admin
         const adminLoginButton = document.getElementById('adminLoginButton');
         const adminControlsContainer = document.getElementById('adminControlsContainer');
         const addYoutubeVideoBtn = document.getElementById('addYoutubeVideoBtn');
         
-        // Modales
         const messageModal = document.getElementById('messageModal');
         const modalMessageText = document.getElementById('modalMessageText');
         const adminLoginModal = document.getElementById('adminLoginModal');
         const addYoutubeVideoModal = document.getElementById('addYoutubeVideoModal');
 
-        // Éléments de la modale d'ajout
         const fetchYoutubeInfoBtn = document.getElementById('fetchYoutubeInfoBtn');
         const youtubeVideoUrlInput = document.getElementById('youtubeVideoUrl');
         const youtubeInfoPreview = document.getElementById('youtubeInfoPreview');
@@ -468,36 +460,19 @@
 
         // --- Fonctions Utilitaires ---
 
-        /**
-         * Affiche une modale
-         * @param {HTMLElement} modalElement - L'élément de la modale à afficher
-         */
         function showModal(modalElement) {
             modalElement.classList.remove('hidden');
         }
 
-        /**
-         * Cache une modale
-         * @param {HTMLElement} modalElement - L'élément de la modale à cacher
-         */
         function hideModal(modalElement) {
             modalElement.classList.add('hidden');
         }
 
-        /**
-         * Affiche un message simple à l'utilisateur
-         * @param {string} message - Le texte à afficher
-         */
         function showUserMessage(message) {
             modalMessageText.textContent = message;
             showModal(messageModal);
         }
 
-        /**
-         * Extrait l'ID de 11 caractères d'une URL YouTube
-         * @param {string} url - L'URL YouTube
-         * @returns {string|null} - L'ID vidéo ou null
-         */
         function getYouTubeVideoId(url) {
             const patterns = [
                 /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
@@ -513,9 +488,6 @@
             return null;
         }
 
-        /**
-         * Réinitialise la modale d'ajout de vidéo à son état initial
-         */
         function resetAddVideoModal() {
             youtubeVideoUrlInput.value = '';
             adminCustomAnnotation.value = '';
@@ -524,7 +496,6 @@
             previewContent.classList.add('hidden');
             previewLoader.classList.add('hidden');
             previewThumbnail.src = '';
-            previewThumbnail.referrerPolicy = "no-referrer"; // Assure que la policy est là
             previewTitle.value = '';
             previewChannel.value = '';
             previewAiSummary.value = '';
@@ -536,12 +507,8 @@
 
         // --- Logique Principale de Rendu ---
 
-        /**
-         * Affiche les vidéos sur la grille (Req #4, #6)
-         * @param {Array} videosToDisplay - La liste des objets vidéo à afficher
-         */
         function displayVideos(videosToDisplay) {
-            videoGrid.innerHTML = ''; // Vide la grille
+            videoGrid.innerHTML = ''; 
             
             if (videosToDisplay.length === 0) {
                 noResultsMessage.classList.remove('hidden');
@@ -550,46 +517,39 @@
             }
 
             videosToDisplay.forEach(video => {
-                // Construit l'URL de la miniature (Req #4)
-                // Utilise une URL de miniature fiable (img.youtube.com)
+                // CORRECTIF (Miniatures) : 
+                // L'URL pointe maintenant vers notre propre backend (proxy)
                 const thumbnailUrl = video.youtubeVideoId 
-                                ? `https://img.youtube.com/vi/${video.youtubeVideoId}/0.jpg` 
+                                ? `${backendApiUrl}/api/thumbnail?videoId=${video.youtubeVideoId}` 
                                 : 'https://placehold.co/400x300/e0e0e0/777?text=Miniature';
 
-                // Crée les étiquettes de mots-clés (Req #4)
                 const keywordsHtml = video.keywords.slice(0, 5).map(kw => 
                     `<span class="keyword-tag" onclick="event.stopPropagation(); filterByKeyword('${kw}');">${kw}</span>`
                 ).join(' ');
 
-                // Crée la carte vidéo
                 const card = document.createElement('div');
                 card.className = 'video-card rounded-lg shadow-lg overflow-hidden flex flex-col cursor-pointer';
-                card.onclick = () => showVideoPlayer(video); // Ouvre le lecteur au clic
+                card.onclick = () => showVideoPlayer(video); 
                 
                 card.innerHTML = `
-                    <!-- Miniature (Req #4) -->
                     <div class="video-thumbnail-container">
-                        <!-- CORRECTIF MINIATURE: Ajout de referrerpolicy="no-referrer" -->
+                        <!-- 
+                          CORRECTIF (Miniatures) : 
+                          Ajout de referrerpolicy='no-referrer'
+                        -->
                         <img src="${thumbnailUrl}" alt="${video.title}" loading="lazy" referrerpolicy="no-referrer">
                     </div>
                     
                     <div class="p-4 flex-grow flex flex-col">
-                        <!-- Titre -->
                         <h3 class="font-semibold text-lg mb-1 truncate" title="${video.title}">${video.title}</h3>
-                        
-                        <!-- Infos de base -->
                         <p class="text-gray-600 text-sm">${video.uploader}</p>
                         <p class="text-gray-500 text-xs mb-2">${video.views} vues</p>
-                        
-                        <!-- Aperçu du résumé (Req #4) -->
                         <p class="summary-preview">${video.aiSummary || 'Pas de résumé.'}</p>
                         
-                        <!-- Mots-clés (Req #4) -->
                         <div class="mt-auto pt-3 flex flex-wrap gap-1.5">
                             ${keywordsHtml}
                         </div>
 
-                        <!-- Boutons Admin (si admin) -->
                         ${isAdmin ? `
                         <div class="mt-3 pt-2 border-t flex items-center">
                              <button class="edit-video-btn text-xs text-blue-600 hover:text-blue-800 mr-3" data-id="${video.id}">
@@ -606,30 +566,24 @@
                 videoGrid.appendChild(card);
             });
 
-            // Attache les écouteurs pour les boutons admin (si présents)
             if (isAdmin) {
                 document.querySelectorAll('.edit-video-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Empêche d'ouvrir le lecteur
+                        e.stopPropagation(); 
                         openEditVideoModal(e.currentTarget.dataset.id);
                     });
                 });
                 document.querySelectorAll('.delete-video-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Empêche d'ouvrir le lecteur
+                        e.stopPropagation(); 
                         deleteVideo(e.currentTarget.dataset.id);
                     });
                 });
             }
         }
 
-        /**
-         * Met à jour le menu déroulant des mots-clés (Req #6)
-         */
         function updateKeywordFilter() {
-            // Sauvegarde la valeur sélectionnée
             const currentValue = keywordFilter.value;
-            
             keywordFilter.innerHTML = '<option value="">Filtrer par mot-clé...</option>';
             allKeywords.forEach(kw => {
                 const option = document.createElement('option');
@@ -637,203 +591,154 @@
                 option.textContent = kw;
                 keywordFilter.appendChild(option);
             });
-
-            // Restaure la valeur si elle existe toujours
             keywordFilter.value = currentValue;
         }
 
-        /**
-         * Filtre les vidéos affichées (Req #6)
-         */
         function filterAndDisplayVideos() {
             const searchTerm = searchInput.value.toLowerCase();
             const selectedKeyword = keywordFilter.value;
 
-            gridLoader.classList.remove('hidden'); // Montre le loader
+            gridLoader.classList.remove('hidden'); 
             noResultsMessage.classList.add('hidden');
             videoGrid.innerHTML = '';
 
-            // Simule un petit délai pour le loader
             setTimeout(() => {
                 const filtered = allVideos.filter(video => {
-                    // Vérifie le terme de recherche
                     const matchesSearch = searchTerm === '' ||
                         video.title.toLowerCase().includes(searchTerm) ||
                         video.aiSummary.toLowerCase().includes(searchTerm) ||
-                        video.adminAnnotation.toLowerCase().includes(searchTerm) ||
-                        video.transcription.toLowerCase().includes(searchTerm) ||
+                        (video.adminAnnotation && video.adminAnnotation.toLowerCase().includes(searchTerm)) ||
+                        (video.transcription && video.transcription.toLowerCase().includes(searchTerm)) ||
                         video.keywords.some(kw => kw.toLowerCase().includes(searchTerm));
                     
-                    // Vérifie le mot-clé sélectionné
                     const matchesKeyword = selectedKeyword === '' || 
                         video.keywords.includes(selectedKeyword);
                     
                     return matchesSearch && matchesKeyword;
                 });
                 
-                gridLoader.classList.add('hidden'); // Cache le loader
+                gridLoader.classList.add('hidden'); 
                 displayVideos(filtered);
-            }, 300); // 300ms de délai
+            }, 300); 
         }
 
-        /**
-         * Fonction appelée par les étiquettes de mots-clés
-         * @param {string} keyword - Le mot-clé sur lequel cliquer
-         */
         function filterByKeyword(keyword) {
-            keywordFilter.value = keyword; // Met à jour le menu déroulant
-            searchInput.value = ''; // Réinitialise la recherche textuelle
-            filterAndDisplayVideos(); // Applique le filtre
-            window.scrollTo(0, 0); // Remonte en haut de la page
+            keywordFilter.value = keyword; 
+            searchInput.value = ''; 
+            filterAndDisplayVideos(); 
+            window.scrollTo(0, 0); 
         }
 
-        /**
-         * Affiche la page de lecture pour une vidéo spécifique (Req #5)
-         * @param {object} video - L'objet vidéo à afficher
-         */
         function showVideoPlayer(video) {
             videoGridPage.classList.add('hidden');
             videoPlayerPage.classList.remove('hidden');
             
-            // Met à jour le lecteur iframe (Req #1)
             mainVideoPlayerIframe.src = `https://www.youtube.com/embed/${video.youtubeVideoId}?autoplay=1&rel=0`;
             
-            // Remplit les informations (Req #5)
             videoTitleElem.textContent = video.title;
             videoUploaderElem.textContent = video.uploader;
             videoViewsElem.textContent = video.views;
             videoAiSummary.textContent = video.aiSummary || 'Aucun résumé disponible.';
-            videoAdminAnnotation.textContent = video.adminAnnotation || 'Aucune annotation disponible.';
             videoTranscription.textContent = video.transcription ? 
-                (video.transcription.substring(0, 500) + '...') : // Affiche un extrait
+                (video.transcription.substring(0, 500) + '...') : 
                 'Aucune transcription disponible.';
 
-            // Remplit les mots-clés (Req #2)
+            // CORRECTIF (Annotations) : Cache ou montre la section
+            if (video.adminAnnotation && video.adminAnnotation.trim() !== '') {
+                videoAdminAnnotation.textContent = video.adminAnnotation;
+                adminAnnotationSection.classList.remove('hidden');
+            } else {
+                videoAdminAnnotation.textContent = '';
+                adminAnnotationSection.classList.add('hidden');
+            }
+
             videoKeywordsContainer.innerHTML = '';
             video.keywords.forEach(kw => {
                 const tag = document.createElement('span');
                 tag.className = 'keyword-tag';
                 tag.textContent = kw;
                 tag.onclick = () => {
-                    showHomePage(); // Retourne à l'accueil
-                    filterByKeyword(kw); // Applique le filtre
+                    showHomePage(); 
+                    filterByKeyword(kw); 
                 };
                 videoKeywordsContainer.appendChild(tag);
             });
             
-            window.scrollTo(0, 0); // Remonte en haut de la page
+            window.scrollTo(0, 0); 
         }
 
-        /**
-         * Affiche la page d'accueil (grille)
-         */
         function showHomePage() {
             videoPlayerPage.classList.add('hidden');
             videoGridPage.classList.remove('hidden');
-            
-            // Arrête la lecture de la vidéo pour économiser les ressources
             mainVideoPlayerIframe.src = '';
-            
-            // Réinitialise et ré-affiche les filtres/vidéos
             searchInput.value = '';
             keywordFilter.value = '';
             filterAndDisplayVideos();
         }
 
-        // --- Logique Administrateur (Req #3) ---
+        // --- Logique Administrateur ---
 
-        /**
-         * Gère l'état de connexion/déconnexion de l'admin
-         * @param {boolean} isLoggedIn - Vrai si l'admin se connecte
-         */
         function setAdminState(isLoggedIn) {
             isAdmin = isLoggedIn;
             adminControlsContainer.classList.toggle('hidden', !isLoggedIn);
             adminLoginButton.textContent = isLoggedIn ? 'Déconnexion' : 'Accès Admin';
             adminLoginButton.classList.toggle('button-secondary', !isLoggedIn);
-            adminLoginButton.classList.toggle('button-primary', isLoggedIn); // Change la couleur en connecté
-            filterAndDisplayVideos(); // Redessine la grille avec/sans les boutons d'édition
+            adminLoginButton.classList.toggle('button-primary', isLoggedIn); 
+            filterAndDisplayVideos(); 
         }
 
-        /**
-         * Ouvre la modale d'édition pour une vidéo existante
-         * @param {string} videoId - L'ID de la vidéo à éditer
-         */
         function openEditVideoModal(videoId) {
             const videoToEdit = allVideos.find(v => v.id === videoId);
             if (!videoToEdit) return;
 
-            resetAddVideoModal(); // Réinitialise la modale
+            resetAddVideoModal(); 
             
-            // Remplit la modale avec les données de la vidéo
             editingVideoIdInput.value = videoToEdit.id;
             youtubeVideoUrlInput.value = `https://www.youtube.com/watch?v=${videoToEdit.youtubeVideoId}`;
-            adminCustomAnnotation.value = videoToEdit.adminAnnotation;
+            adminCustomAnnotation.value = videoToEdit.adminAnnotation || '';
             
-            // Remplit les champs de prévisualisation (pas besoin d'appeler le backend)
-            previewThumbnail.src = `https://img.youtube.com/vi/${videoToEdit.youtubeVideoId}/0.jpg`;
-            previewThumbnail.referrerPolicy = "no-referrer"; // CORRECTIF MINIATURE
+            // CORRECTIF (Miniatures) : Utilise le proxy backend
+            previewThumbnail.src = `${backendApiUrl}/api/thumbnail?videoId=${videoToEdit.youtubeVideoId}`;
             previewTitle.value = videoToEdit.title;
             previewChannel.value = videoToEdit.uploader;
             previewAiSummary.value = videoToEdit.aiSummary;
             previewKeywords.value = videoToEdit.keywords.join(', ');
             
-            // Affiche la prévisualisation et active le bouton de sauvegarde
             youtubeInfoPreview.classList.remove('hidden');
             previewContent.classList.remove('hidden');
             saveYoutubeVideoBtn.disabled = false;
             
-            // Change le titre de la modale
             addYoutubeVideoModal.querySelector('h3').textContent = "Modifier la Vidéo";
             showModal(addYoutubeVideoModal);
         }
 
-        /**
-         * Supprime une vidéo (simulation)
-         * @param {string} videoId - L'ID de la vidéo à supprimer
-         */
         function deleteVideo(videoId) {
-            // Remplace `confirm` par une modale personnalisée si possible
             if (window.confirm("Êtes-vous sûr de vouloir supprimer cette vidéo ?")) {
                 allVideos = allVideos.filter(v => v.id !== videoId);
-                
-                // Met à jour la liste des mots-clés
                 allKeywords.clear();
                 allVideos.forEach(v => v.keywords.forEach(kw => allKeywords.add(kw)));
-                
-                filterAndDisplayVideos(); // Met à jour la grille
-                updateKeywordFilter(); // Met à jour le filtre
-                
+                filterAndDisplayVideos(); 
+                updateKeywordFilter(); 
                 showUserMessage("Vidéo supprimée.");
             }
         }
 
         // --- Écouteurs d'Événements ---
 
-        // Initialisation de la page
         document.addEventListener('DOMContentLoaded', () => {
-            // Charge les données d'exemple au début
             allVideos = [...sampleVideos];
-            
-            // Remplit le set de mots-clés (Req #6)
             allVideos.forEach(v => v.keywords.forEach(kw => allKeywords.add(kw)));
-            
-            // Affiche les vidéos et le filtre
             displayVideos(allVideos);
             updateKeywordFilter();
 
-            // --- Écouteurs pour la recherche et le filtre (Req #6) ---
             let searchTimeout;
             searchInput.addEventListener('input', () => {
                 clearTimeout(searchTimeout);
-                // "Debounce": attend 300ms après la dernière frappe pour lancer la recherche
                 searchTimeout = setTimeout(filterAndDisplayVideos, 300);
             });
             keywordFilter.addEventListener('change', filterAndDisplayVideos);
 
-            // --- Écouteurs pour l'administration (Req #3) ---
-
-            // Bouton de connexion admin
+            // --- Admin ---
             adminLoginButton.addEventListener('click', () => {
                 if (isAdmin) {
                     setAdminState(false);
@@ -843,10 +748,9 @@
                 }
             });
 
-            // Soumission de la connexion
             document.getElementById('submitAdminLogin').addEventListener('click', () => {
                 const password = document.getElementById('adminPassword').value;
-                // Mot de passe codé en dur pour la simulation
+                // CORRECTIF (Admin PW) : Mot de passe pour l'admin
                 if (password === 'admin123') { 
                     setAdminState(true);
                     hideModal(adminLoginModal);
@@ -857,16 +761,13 @@
                 }
             });
 
-            // Ouvre la modale d'ajout
             addYoutubeVideoBtn.addEventListener('click', () => {
                 resetAddVideoModal();
                 addYoutubeVideoModal.querySelector('h3').textContent = "Ajouter une Vidéo YouTube";
                 showModal(addYoutubeVideoModal);
             });
 
-            // --- Logique d'appel au Backend (le cœur) ---
-
-            // Bouton "Récupérer et Analyser"
+            // --- Logique d'appel au Backend ---
             fetchYoutubeInfoBtn.addEventListener('click', async () => {
                 const url = youtubeVideoUrlInput.value;
                 const videoId = getYouTubeVideoId(url);
@@ -876,22 +777,24 @@
                     return;
                 }
 
-                // Affiche la prévisualisation et le loader
                 youtubeInfoPreview.classList.remove('hidden');
                 previewContent.classList.add('hidden');
                 previewLoader.classList.remove('hidden');
-                saveYoutubeVideoBtn.disabled = true; // Désactive la sauvegarde pendant le chargement
+                saveYoutubeVideoBtn.disabled = true; 
                 fetchYoutubeInfoBtn.disabled = true;
                 youtubeVideoUrlInput.disabled = true;
 
                 try {
-                    // C'EST ICI QUE LE FRONTEND PARLE AU BACKEND
+                    // Appel au Backend
                     const response = await fetch(backendApiUrl + '/api/add-video', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             videoUrl: url,
-                            adminAnnotation: '' // L'annotation est ajoutée à la fin
+                            // L'annotation est envoyée au moment de la SAUVEGARDE,
+                            // mais le backend est conçu pour la recevoir.
+                            // On la passe ici au cas où la logique changerait.
+                            adminAnnotation: adminCustomAnnotation.value 
                         })
                     });
 
@@ -900,41 +803,36 @@
                         throw new Error(errorData.error || 'Erreur du serveur');
                     }
                     
-                    // Le backend renvoie les données traitées (Req #2, #3)
                     const data = await response.json();
                     
-                    // Remplit les champs de prévisualisation avec les données de l'IA
-                    previewThumbnail.src = `https://img.youtube.com/vi/${data.youtubeVideoId}/0.jpg`;
-                    previewThumbnail.referrerPolicy = "no-referrer"; // CORRECTIF MINIATURE
-                    previewTitle.value = data.title || `Titre pour ${data.youtubeVideoId}`; // Utilise le titre du backend
-                    previewChannel.value = data.uploader || 'Chaîne inconnue'; // Utilise l'uploader du backend
+                    // CORRECTIF (Miniatures) : Utilise le proxy backend
+                    previewThumbnail.src = `${backendApiUrl}/api/thumbnail?videoId=${data.youtubeVideoId}`;
+                    previewTitle.value = data.title;
+                    previewChannel.value = data.uploader;
                     previewAiSummary.value = data.aiSummary;
                     previewKeywords.value = data.keywords.join(', ');
                     
-                    // Cache le loader et affiche le contenu
                     previewLoader.classList.add('hidden');
                     previewContent.classList.remove('hidden');
-                    saveYoutubeVideoBtn.disabled = false; // Active le bouton de sauvegarde
+                    saveYoutubeVideoBtn.disabled = false; 
 
                 } catch (error) {
                     console.error("Erreur lors de l'appel au backend:", error);
-                    showUserMessage(`Erreur de communication avec le backend: ${error.message}. Assurez-vous que le serveur backend (Render) est démarré.`);
-                    // Réinitialise la modale en cas d'erreur
+                    showUserMessage(`Erreur de communication avec le backend: ${error.message}. Assurez-vous que le serveur backend (Render) est démarré et que l'URL est correcte.`);
                     resetAddVideoModal();
                 }
             });
 
-            // Bouton "Sauvegarder"
             saveYoutubeVideoBtn.addEventListener('click', () => {
                 const editingId = editingVideoIdInput.value;
                 
-                // Crée le nouvel objet vidéo à partir des données de la modale
                 const newVideoData = {
-                    // id: sera 'temp_...' ou l'ID existant
                     youtubeVideoId: getYouTubeVideoId(youtubeVideoUrlInput.value),
                     title: previewTitle.value,
                     uploader: previewChannel.value,
-                    views: editingId ? allVideos.find(v=>v.id === editingId).views : '0', // Garde les vues si édition, sinon 0
+                    // CORRECTIF (Vues) : Les vues viendront du backend.
+                    // Pour l'instant, on simule comme avant.
+                    views: editingId ? allVideos.find(v=>v.id === editingId).views : '0 (Nouvelle)', 
                     aiSummary: previewAiSummary.value,
                     keywords: previewKeywords.value.split(',').map(kw => kw.trim()).filter(Boolean),
                     adminAnnotation: adminCustomAnnotation.value,
@@ -942,21 +840,17 @@
                 };
 
                 if (editingId) {
-                    // Mode ÉDITION : trouve et remplace
                     const index = allVideos.findIndex(v => v.id === editingId);
                     if (index !== -1) {
                         allVideos[index] = { ...allVideos[index], ...newVideoData, id: editingId };
                     }
                 } else {
-                    // Mode AJOUT : ajoute au début
-                    newVideoData.id = 'temp_' + Date.now(); // Crée un ID local temporaire
+                    newVideoData.id = 'temp_' + Date.now(); 
                     allVideos.unshift(newVideoData);
                 }
 
-                // Met à jour la liste globale des mots-clés
                 newVideoData.keywords.forEach(kw => allKeywords.add(kw));
                 
-                // Met à jour l'interface
                 filterAndDisplayVideos();
                 updateKeywordFilter();
                 
