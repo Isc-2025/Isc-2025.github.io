@@ -1,119 +1,108 @@
 /*
 * ===============================================
 * SERVEUR BACKEND POUR LA PLATEFORME VIDÉO ISC
+* VRAIE BASE DE DONNÉES (POSTGRESQL)
 * ===============================================
 */
 
 import express from 'express';
 import cors from 'cors';
-import https from 'https'; 
-import axios from 'axios'; 
+import https from 'https';
+import axios from 'axios';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import pg from 'pg'; // Importe le pilote PostgreSQL
+
+const { Pool } = pg;
+
+// --- Connexion à la base de données ---
+// Render fournit cette URL automatiquement via les Variables d'Environnement
+const dbUrl = process.env.DATABASE_URL;
+
+const pool = new Pool({
+    connectionString: dbUrl,
+    ssl: {
+        rejectUnauthorized: false // Requis pour les connexions à Render
+    }
+});
+
+// --- Initialisation de la base de données ---
+// Crée la table "videos" si elle n'existe pas au démarrage
+const initDb = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS videos (
+                id SERIAL PRIMARY KEY,
+                youtubeVideoId VARCHAR(20) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                uploader VARCHAR(255),
+                keywords TEXT[],
+                summary TEXT,
+                adminAnnotation TEXT,
+                viewCount INTEGER,
+                createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("Base de données initialisée (Table 'videos' vérifiée/créée).");
+    } catch (err) {
+        console.error("ERREUR lors de l'initialisation de la DB:", err.stack);
+    }
+};
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors()); 
-app.use(express.json()); 
+// Pour servir les fichiers statiques (notre index.html)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname))); // Sers le frontend
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 // ===============================================
-// BASE DE DONNÉES (SIMULÉE)
+// ROUTES DE L'API (Le "Moteur")
 // ===============================================
-let allVideos = [
-    {
-        "id": "yt001",
-        "youtubeVideoId": "S15e-qC1S0I",
-        "title": "Où va l'IA ? (Feu de Bengale)",
-        "uploader": "Feu de Bengale • 215K vues",
-        "keywords": ["IA", "Modèles de Langage", "Éthique", "Alignement", "Régulation"],
-        "summary": "Analyse approfondie de la trajectoire actuelle de l'intelligence artificielle, de ses capacités émergentes (modèles de langage) aux risques sociétaux et existentiels. Discussion sur l'alignement et la régulation.",
-        "adminAnnotation": "Excellent point de départ pour le débat sur l'IA forte. Pertinent pour le cours ISC-8001."
-    },
-    {
-        "id": "yt002",
-        "youtubeVideoId": "9to-e4c1Eho",
-        "title": "Le Problème Difficile de la Conscience (David Chalmers)",
-        "uploader": "David Chalmers (TED) • 2.5M vues",
-        "keywords": ["Conscience", "Philosophie", "Neurosciences", "Problème Difficile", "Subjectivité"],
-        "summary": "Le philosophe David Chalmers explore le \"problème difficile\" de la conscience : pourquoi et comment les processus physiques du cerveau donnent-ils lieu à une expérience subjective riche ? Il distingue les problèmes \"faciles\" (mécanismes) du problème \"difficile\" (l'expérience elle-même).",
-        "adminAnnotation": ""
-    },
-    {
-        "id": "yt003",
-        "youtubeVideoId": "7s0CpR_FNA4",
-        "title": "La Théorie du Langage de Chomsky",
-        "uploader": "The Brain Maze • 325K vues",
-        "keywords": ["Langage", "Linguistique", "Chomsky", "Grammaire Universelle", "Cognition"],
-        "summary": "Cette vidéo résume les concepts clés de la théorie linguistique de Noam Chomsky, notamment la grammaire universelle, l'innéisme et le dispositif d'acquisition du langage (LAD). Elle oppose sa vision aux approches béhavioristes.",
-        "adminAnnotation": "Référence classique pour l'acquisition du langage."
-    },
-    {
-        "id": "yt004",
-        "youtubeVideoId": "rS1-50LY0gA",
-        "title": "Qu'est-ce que la Science Cognitive ?",
-        "uploader": "Ryan Rhodes • 110K vues",
-        "keywords": ["Science Cognitive", "Interdisciplinaire", "Esprit", "Cerveau", "Computation"],
-        "summary": "Une introduction claire à ce qu'est la science cognitive. La vidéo la définit comme l'étude interdisciplinaire de l'esprit et de l'intelligence, combinant la psychologie, l'informatique, les neurosciences, la linguistique et la philosophie.",
-        "adminAnnotation": "Bonne vidéo d'introduction pour les nouveaux étudiants."
-    },
-    {
-        "id": "yt005",
-        "youtubeVideoId": "Rz1x02nnlqg",
-        "title": "La conscience, par Stanislas Dehaene",
-        "uploader": "Collège de France • 180K vues",
-        "keywords": ["Conscience", "Stanislas Dehaene", "Espace de Travail Global", "Neurosciences", "Signature Cérébrale"],
-        "summary": "Stanislas Dehaene présente ses travaux sur les \"signatures\" cérébrales de la conscience. Il expose la théorie de l'espace de travail neuronal global (Global Neuronal Workspace), suggérant que la conscience émerge lorsqu'une information est largement diffusée à travers différents modules cérébraux.",
-        "adminAnnotation": ""
-    },
-    {
-        "id": "yt006",
-        "youtubeVideoId": "i3OYlaoj-SY",
-        "title": "Yuval Harari et Lex Fridman sur l'IA",
-        "uploader": "Lex Fridman • 5.2M vues",
-        "keywords": ["IA", "Yuval Noah Harari", "Lex Fridman", "Société", "Avenir"],
-        "summary": "Une conversation profonde entre Yuval Noah Harari et Lex Fridman sur l'impact potentiel de l'intelligence artificielle sur l'humanité, l'avenir des sociétés, le pouvoir narratif et les risques existentiels.",
-        "adminAnnotation": "Perspective philosophique et sociétale importante."
+
+// Route 1 : Obtenir toutes les vidéos
+app.get('/api/videos', async (req, res) => {
+    try {
+        // Lit depuis la DB, en triant par la plus récente
+        const result = await pool.query('SELECT * FROM videos ORDER BY createdAt DESC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Erreur lors de la lecture de la base de données." });
     }
-];
-
-// ===============================================
-// ROUTES DE L'API
-// ===============================================
-
-app.get('/api/videos', (req, res) => {
-    res.json(allVideos);
 });
 
+// Route 2 : Ajouter une nouvelle vidéo
 app.post('/api/add-video', async (req, res) => {
     const { videoUrl, adminAnnotation } = req.body;
     
+    // --- Extraction de l'ID ---
     let videoId = null;
     try {
         const url = new URL(videoUrl);
-        if (url.hostname === 'youtu.be') {
-            videoId = url.pathname.slice(1);
-        } else if (url.hostname.includes('youtube.com') && url.pathname === '/watch') {
-            videoId = url.searchParams.get('v');
-        } else if (url.hostname.includes('youtube.com') && url.pathname.startsWith('/embed/')) {
-            videoId = url.pathname.split('/')[2];
-        }
+        if (url.hostname === 'youtu.be') videoId = url.pathname.slice(1);
+        else if (url.hostname.includes('youtube.com')) videoId = url.searchParams.get('v');
     } catch (error) {
         return res.status(400).json({ message: "URL YouTube invalide." });
     }
+    if (!videoId) return res.status(400).json({ message: "ID vidéo non trouvé." });
 
-    if (!videoId) {
-        return res.status(400).json({ message: "Impossible d'extraire l'ID vidéo de l'URL." });
-    }
-
+    // --- Simulation de l'analyse IA (pour l'instant) ---
     const simulatedData = {
-        title: "Titre récupéré de YouTube (Simulé)",
-        uploader: "Chaîne YouTube (Simulée)",
-        keywords: ["IA (Simulé)", "Keyword 2", "Keyword 3", "Keyword 4", "Keyword 5"],
-        summary: `Ceci est un résumé simulé généré par IA pour la vidéo ${videoId}. Le système aurait normalement téléchargé la transcription, l'aurait envoyée à Gemini pour analyse, puis aurait renvoyé ce résumé en français.`,
-        viewCount: null 
+        title: "Titre Simulé (en attente de l'API YT)",
+        uploader: "Chaîne Simulée",
+        keywords: ["Simulé", "IA", "Keyword 3", "Keyword 4", "Keyword 5"],
+        summary: `Ceci est un résumé simulé généré par IA pour la vidéo ${videoId}.`,
+        viewCount: 0
     };
 
+    // --- Appel (futur) à l'API YouTube pour les vraies données ---
     if (YOUTUBE_API_KEY) {
         try {
             const ytApiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,statistics&key=${YOUTUBE_API_KEY}`;
@@ -123,48 +112,59 @@ app.post('/api/add-video', async (req, res) => {
             simulatedData.title = item.snippet.title;
             simulatedData.uploader = item.snippet.channelTitle;
             simulatedData.viewCount = parseInt(item.statistics.viewCount, 10);
-            
         } catch (error) {
             console.error("Erreur lors de l'appel à l'API YouTube:", error.message);
         }
     }
 
-    const newVideo = {
-        id: 'yt' + Date.now(),
-        youtubeVideoId: videoId,
-        title: simulatedData.title,
-        uploader: `${simulatedData.uploader} • ${simulatedData.viewCount ? (simulatedData.viewCount / 1000).toFixed(0) + 'K' : 'N/A'} vues`,
-        keywords: simulatedData.keywords,
-        summary: simulatedData.summary,
-        adminAnnotation: adminAnnotation,
-        viewCount: simulatedData.viewCount
-    };
+    // --- Sauvegarde dans la VRAIE base de données ---
+    try {
+        const result = await pool.query(
+            `INSERT INTO videos (youtubeVideoId, title, uploader, keywords, summary, adminAnnotation, viewCount)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING *`,
+            [
+                videoId,
+                simulatedData.title,
+                `${simulatedData.uploader} • ${simulatedData.viewCount ? (simulatedData.viewCount / 1000).toFixed(0) + 'K' : 'N/A'} vues`,
+                simulatedData.keywords,
+                simulatedData.summary,
+                adminAnnotation,
+                simulatedData.viewCount
+            ]
+        );
+        
+        // Renvoie la nouvelle vidéo (qui vient de la DB) au frontend
+        res.status(201).json(result.rows[0]); 
 
-    allVideos.unshift(newVideo); 
-    res.status(201).json(newVideo); 
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Erreur lors de l'écriture dans la base de données." });
+    }
 });
 
+// Route 3 : Proxy pour les miniatures
 app.get('/api/thumbnail', (req, res) => {
     const videoId = req.query.v;
-    if (!videoId) {
-        return res.status(400).send('ID vidéo manquant');
-    }
-
+    if (!videoId) return res.status(400).send('ID vidéo manquant');
     const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-
     https.get(thumbnailUrl, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res, { end: true });
-    }).on('error', (e) => {
-        console.error("Erreur du proxy miniature:", e);
-        res.status(500).send('Erreur proxy');
+    }).on('error', (e) => res.status(500).send('Erreur proxy'));
+});
+
+// Route 4 : Servir la "Vitrine" (index.html)
+// Doit être la dernière route
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// --- Démarrage du serveur ---
+// Démarre d'abord la DB, puis le serveur
+initDb().then(() => {
+    app.listen(port, () => {
+        console.log(`Serveur démarré sur http://localhost:${port}`);
     });
-});
-
-app.get('/', (req, res) => {
-    res.send('Serveur Backend ISC - En ligne et opérationnel!');
-});
-
-app.listen(port, () => {
-    console.log(`Serveur backend démarré sur http://localhost:${port}`);
+}).catch(err => {
+    console.error("ÉCHEC du démarrage du serveur:", err);
 });
