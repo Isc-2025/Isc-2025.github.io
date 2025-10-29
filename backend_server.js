@@ -2,33 +2,24 @@
 * ===============================================
 * SERVEUR BACKEND POUR LA PLATEFORME VIDÉO ISC
 * ===============================================
-* Ce serveur gère :
-* 1. La base de données (simulée) des vidéos.
-* 2. L'analyse (simulée) de nouvelles vidéos.
-* 3. Le proxy pour les miniatures YouTube (pour contourner les blocages).
-* 4. L'appel (futur) à l'API YouTube pour les vraies données.
 */
 
 import express from 'express';
 import cors from 'cors';
-import https from 'https'; // Pour le proxy
-import axios from 'axios'; // Pour le proxy et l'API YouTube
+import https from 'https'; 
+import axios from 'axios'; 
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// --- Middlewares ---
-app.use(cors()); // Autorise les requêtes de votre frontend (GitHub Pages / Render)
-app.use(express.json()); // Permet au serveur de comprendre le JSON
+app.use(cors()); 
+app.use(express.json()); 
 
-// --- CLÉ API (Pour le futur) ---
-// À AJOUTER DANS LES VARIABLES D'ENVIRONNEMENT SUR RENDER
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 // ===============================================
 // BASE DE DONNÉES (SIMULÉE)
 // ===============================================
-// À terme, ceci devrait être remplacé par une vraie base de données (Firestore, MongoDB, etc.)
 let allVideos = [
     {
         "id": "yt001",
@@ -90,11 +81,90 @@ let allVideos = [
 // ROUTES DE L'API
 // ===============================================
 
-// Route 1 : Obtenir toutes les vidéos
-// C'est ce que le frontend appelle au chargement.
 app.get('/api/videos', (req, res) => {
-    // À l'avenir, on pourrait appeler l'API YouTube ici pour mettre à jour les vues
     res.json(allVideos);
 });
 
-// Route
+app.post('/api/add-video', async (req, res) => {
+    const { videoUrl, adminAnnotation } = req.body;
+    
+    let videoId = null;
+    try {
+        const url = new URL(videoUrl);
+        if (url.hostname === 'youtu.be') {
+            videoId = url.pathname.slice(1);
+        } else if (url.hostname.includes('youtube.com') && url.pathname === '/watch') {
+            videoId = url.searchParams.get('v');
+        } else if (url.hostname.includes('youtube.com') && url.pathname.startsWith('/embed/')) {
+            videoId = url.pathname.split('/')[2];
+        }
+    } catch (error) {
+        return res.status(400).json({ message: "URL YouTube invalide." });
+    }
+
+    if (!videoId) {
+        return res.status(400).json({ message: "Impossible d'extraire l'ID vidéo de l'URL." });
+    }
+
+    const simulatedData = {
+        title: "Titre récupéré de YouTube (Simulé)",
+        uploader: "Chaîne YouTube (Simulée)",
+        keywords: ["IA (Simulé)", "Keyword 2", "Keyword 3", "Keyword 4", "Keyword 5"],
+        summary: `Ceci est un résumé simulé généré par IA pour la vidéo ${videoId}. Le système aurait normalement téléchargé la transcription, l'aurait envoyée à Gemini pour analyse, puis aurait renvoyé ce résumé en français.`,
+        viewCount: null 
+    };
+
+    if (YOUTUBE_API_KEY) {
+        try {
+            const ytApiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,statistics&key=${YOUTUBE_API_KEY}`;
+            const response = await axios.get(ytApiUrl);
+            const item = response.data.items[0];
+            
+            simulatedData.title = item.snippet.title;
+            simulatedData.uploader = item.snippet.channelTitle;
+            simulatedData.viewCount = parseInt(item.statistics.viewCount, 10);
+            
+        } catch (error) {
+            console.error("Erreur lors de l'appel à l'API YouTube:", error.message);
+        }
+    }
+
+    const newVideo = {
+        id: 'yt' + Date.now(),
+        youtubeVideoId: videoId,
+        title: simulatedData.title,
+        uploader: `${simulatedData.uploader} • ${simulatedData.viewCount ? (simulatedData.viewCount / 1000).toFixed(0) + 'K' : 'N/A'} vues`,
+        keywords: simulatedData.keywords,
+        summary: simulatedData.summary,
+        adminAnnotation: adminAnnotation,
+        viewCount: simulatedData.viewCount
+    };
+
+    allVideos.unshift(newVideo); 
+    res.status(201).json(newVideo); 
+});
+
+app.get('/api/thumbnail', (req, res) => {
+    const videoId = req.query.v;
+    if (!videoId) {
+        return res.status(400).send('ID vidéo manquant');
+    }
+
+    const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+    https.get(thumbnailUrl, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+    }).on('error', (e) => {
+        console.error("Erreur du proxy miniature:", e);
+        res.status(500).send('Erreur proxy');
+    });
+});
+
+app.get('/', (req, res) => {
+    res.send('Serveur Backend ISC - En ligne et opérationnel!');
+});
+
+app.listen(port, () => {
+    console.log(`Serveur backend démarré sur http://localhost:${port}`);
+});
